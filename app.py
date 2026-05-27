@@ -43,35 +43,25 @@ if 'page' not in st.session_state:
 
 months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-# Initialize Collections Database with Fake Data
+# Initialize Collections Database with Fake Data (No Empty Padding)
 if 'collections_df' not in st.session_state:
-    # Set years up to 2026
     st.session_state.years = [2024, 2025, 2026]
     
-    # Generate 100 members, but give the first 10 fake names
-    members = [f"{i:03d}" for i in range(1, 101)]
+    # Start with only 10 members (users can add more dynamically in the app)
+    members = [f"{i:03d}" for i in range(1, 11)]
     fake_names = ["Kagabo Jean", "Mukamana Alice", "Bizimana Eric", "Uwera Sarah", "Habimana Paul",
                   "Gatete Patrick", "Umutoni Grace", "Nshuti David", "Kamikazi Diane", "Rukundo Yves"]
-    names = fake_names + [""] * 90 
     
-    df = pd.DataFrame({"Member No": members, "Member Name": names})
-    
-    # Fake contribution options
+    df = pd.DataFrame({"Member No": members, "Member Name": fake_names})
     amounts = [0, 50000, 100000, 100000, 150000, 200000, 300000] 
     
     for y in st.session_state.years:
         for m in months:
             col_name = f"{y} {m}"
-            # Stop generating data after May 2026
             if y == 2026 and months.index(m) > 4: 
                 df[col_name] = 0.0
             else:
-                col_data = []
-                for i in range(100):
-                    if i < 10: # Only assign money to our 10 fake members
-                        col_data.append(float(random.choice(amounts)))
-                    else:
-                        col_data.append(0.0)
+                col_data = [float(random.choice(amounts)) for _ in range(10)]
                 df[col_name] = col_data
                 
     st.session_state.collections_df = df
@@ -292,7 +282,7 @@ elif st.session_state.page == "Part 3: Collections Database":
 
     base_df = st.session_state.collections_df.copy()
     all_month_cols = [c for c in base_df.columns if c not in ["Member No", "Member Name"]]
-    base_df["Total to Date"] = base_df[all_month_cols].sum(axis=1)
+    base_df["Total to Date"] = base_df[all_month_cols].fillna(0).sum(axis=1)
     
     cols_to_show = ["Member No", "Member Name"]
     for y in visible_years:
@@ -301,11 +291,16 @@ elif st.session_state.page == "Part 3: Collections Database":
     
     display_df = base_df[cols_to_show]
 
+    # Add Thousand Separator Configuration for Table 1
     col_config = {
-        "Member No": st.column_config.TextColumn("No", disabled=True),
+        "Member No": st.column_config.TextColumn("No"), # Unlocked so you can type 011 when adding a row
         "Member Name": st.column_config.TextColumn("Member Name", max_chars=30),
-        "Total to Date": st.column_config.NumberColumn("Total to Date", disabled=True, format="%.0f")
+        "Total to Date": st.column_config.NumberColumn("Total to Date", disabled=True, format="%,.0f")
     }
+    
+    for y in st.session_state.years:
+        for m in months:
+            col_config[f"{y} {m}"] = st.column_config.NumberColumn(f"{y} {m}", format="%,.0f")
 
     edited_df = st.data_editor(
         display_df,
@@ -315,30 +310,38 @@ elif st.session_state.page == "Part 3: Collections Database":
         height=500
     )
 
+    # Save edits back to state
     for col in edited_df.columns:
         if col != "Total to Date":
             st.session_state.collections_df[col] = edited_df[col]
 
+    # Table 1 Totals
     st.markdown("**Monthly & Grand Totals**")
     totals_dict = {"Member No": ["SUM"], "Member Name": ["All Members"]}
     for col in edited_df.columns:
         if col not in ["Member No", "Member Name"]:
-            totals_dict[col] = [edited_df[col].sum()]
-    
-    st.dataframe(pd.DataFrame(totals_dict), hide_index=True, use_container_width=True)
+            totals_dict[col] = [edited_df[col].fillna(0).sum()]
+            
+    totals_col_config = {c: st.column_config.NumberColumn(format="%,.0f") for c in totals_dict.keys() if c not in ["Member No", "Member Name"]}
+    st.dataframe(pd.DataFrame(totals_dict), hide_index=True, use_container_width=True, column_config=totals_col_config)
     
     st.divider()
 
+    # --- TABLE 2 ---
     st.markdown("### Table 2: Yearly Summary & Share")
     summary_df = pd.DataFrame()
     summary_df["Member No"] = st.session_state.collections_df["Member No"]
     summary_df["Member Name"] = st.session_state.collections_df["Member Name"]
     
+    t2_col_config = {"% Share": st.column_config.NumberColumn("% Share", format="%.2f %%")}
+    
     for y in st.session_state.years:
         y_cols = [c for c in st.session_state.collections_df.columns if str(y) in c]
-        summary_df[f"{y} Total"] = st.session_state.collections_df[y_cols].sum(axis=1)
+        summary_df[f"{y} Total"] = st.session_state.collections_df[y_cols].fillna(0).sum(axis=1)
+        t2_col_config[f"{y} Total"] = st.column_config.NumberColumn(format="%,.0f") # Formatting for T2
         
-    summary_df["Grand Total"] = summary_df[[f"{y} Total" for y in st.session_state.years]].sum(axis=1)
+    summary_df["Grand Total"] = summary_df[[f"{y} Total" for y in st.session_state.years]].fillna(0).sum(axis=1)
+    t2_col_config["Grand Total"] = st.column_config.NumberColumn(format="%,.0f")
     
     total_fund_pool = summary_df["Grand Total"].sum()
     if total_fund_pool > 0:
@@ -346,11 +349,17 @@ elif st.session_state.page == "Part 3: Collections Database":
     else:
         summary_df["% Share"] = 0.0
 
-    st.dataframe(
-        summary_df, 
-        use_container_width=True,
-        column_config={"% Share": st.column_config.NumberColumn("% Share", format="%.2f %%")}
-    )
+    st.dataframe(summary_df, use_container_width=True, column_config=t2_col_config)
+
+    # Table 2 Totals (New Feature)
+    st.markdown("**Yearly & Grand Totals Summary**")
+    t2_totals_dict = {"Member No": ["SUM"], "Member Name": ["All Members"]}
+    for y in st.session_state.years:
+        t2_totals_dict[f"{y} Total"] = [summary_df[f"{y} Total"].sum()]
+    t2_totals_dict["Grand Total"] = [summary_df["Grand Total"].sum()]
+    t2_totals_dict["% Share"] = [100.0]
+
+    st.dataframe(pd.DataFrame(t2_totals_dict), hide_index=True, use_container_width=True, column_config=t2_col_config)
 
 # ==========================================
 # PAGE: PART 4 - EXPENSE LEDGER
@@ -366,13 +375,12 @@ elif st.session_state.page == "Part 4: Expense Ledger":
         column_config={
             "No": st.column_config.NumberColumn("Ref No.", step=1),
             "Date": st.column_config.DateColumn("Date"),
-            "Amount": st.column_config.NumberColumn("Amount", format="%.0f")
+            "Amount": st.column_config.NumberColumn("Amount", format="%,.0f") # Thousand Separator
         }
     )
     
     st.session_state.expenses_df = edited_expenses
-    
-    total_expenses = edited_expenses["Amount"].sum()
+    total_expenses = edited_expenses["Amount"].fillna(0).sum()
     st.markdown(f"### Total Disbursed: **{total_expenses:,.0f}**")
 
 # ==========================================
@@ -383,12 +391,13 @@ elif st.session_state.page == "Part 5: Financial Dashboard":
     st.markdown("Live operational status of the Nkeretanyi Cooperative Fund.")
     
     all_month_cols = [c for c in st.session_state.collections_df.columns if c not in ["Member No", "Member Name"]]
-    gross_collections = st.session_state.collections_df[all_month_cols].sum().sum()
-    total_expenses = st.session_state.expenses_df["Amount"].sum()
+    gross_collections = st.session_state.collections_df[all_month_cols].fillna(0).sum().sum()
+    total_expenses = st.session_state.expenses_df["Amount"].fillna(0).sum()
     net_capital = gross_collections - total_expenses
     
-    member_totals = st.session_state.collections_df[all_month_cols].sum(axis=1)
+    member_totals = st.session_state.collections_df[all_month_cols].fillna(0).sum(axis=1)
     active_members = (member_totals > 0).sum()
+    total_roster = len(st.session_state.collections_df)
 
     col1, col2, col3 = st.columns(3)
     
@@ -418,7 +427,7 @@ elif st.session_state.page == "Part 5: Financial Dashboard":
     
     col4, col5 = st.columns(2)
     with col4:
-        st.metric("Active Contributing Members", f"{active_members} / 100")
+        st.metric("Active Contributing Members", f"{active_members} / {total_roster}")
     with col5:
         if gross_collections > 0:
             expense_ratio = (total_expenses / gross_collections) * 100
@@ -433,13 +442,13 @@ elif st.session_state.page == "Part 5: Financial Dashboard":
     yearly_collections = []
     for y in st.session_state.years:
         y_cols = [c for c in st.session_state.collections_df.columns if str(y) in c]
-        yearly_collections.append(st.session_state.collections_df[y_cols].sum().sum())
+        yearly_collections.append(st.session_state.collections_df[y_cols].fillna(0).sum().sum())
         
     expenses_df = st.session_state.expenses_df.copy()
     expenses_df["Date"] = pd.to_datetime(expenses_df["Date"])
     yearly_expenses = []
     for y in st.session_state.years:
-        year_exp = expenses_df[expenses_df["Date"].dt.year == y]["Amount"].sum()
+        year_exp = expenses_df[expenses_df["Date"].dt.year == y]["Amount"].fillna(0).sum()
         yearly_expenses.append(year_exp)
         
     fig = go.Figure()
