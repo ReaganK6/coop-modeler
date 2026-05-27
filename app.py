@@ -2,20 +2,18 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import date
+import random
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Nkeretanyi Cooperative Fund", layout="wide")
 
-# --- Custom CSS for Sidebar Buttons (Active vs Inactive States) ---
+# --- Custom CSS for Sidebar Buttons ---
 st.markdown("""
     <style>
-    /* Base text styling for buttons */
     section[data-testid="stSidebar"] .stButton button p {
         font-weight: 600;
         font-size: 16px;
     }
-    
-    /* INACTIVE BUTTONS (Secondary type) - Blue Outline */
     section[data-testid="stSidebar"] .stButton button[kind="secondary"] {
         border: 2px solid #3b82f6; 
         background-color: transparent;
@@ -23,13 +21,10 @@ st.markdown("""
         border-radius: 4px;
         height: 45px;
     }
-    /* Inactive Hover State - Light fill */
     section[data-testid="stSidebar"] .stButton button[kind="secondary"]:hover {
         background-color: rgba(59, 130, 246, 0.2);
         color: white;
     }
-
-    /* ACTIVE BUTTON (Primary type) - Solid Blue Fill */
     section[data-testid="stSidebar"] .stButton button[kind="primary"] {
         border: 2px solid #3b82f6; 
         background-color: #3b82f6;
@@ -41,37 +36,60 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# SESSION STATE INITIALIZATION
+# SESSION STATE INITIALIZATION (DATABASE)
 # ==========================================
 if 'page' not in st.session_state:
     st.session_state.page = 'Home'
 
 months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-# Initialize Collections Database
+# Initialize Collections Database with Fake Data
 if 'collections_df' not in st.session_state:
-    st.session_state.years = [2024]
+    # Set years up to 2026
+    st.session_state.years = [2024, 2025, 2026]
+    
+    # Generate 100 members, but give the first 10 fake names
     members = [f"{i:03d}" for i in range(1, 101)]
-    df = pd.DataFrame({"Member No": members, "Member Name": [""] * 100})
-    for m in months:
-        df[f"2024 {m}"] = 0.0
+    fake_names = ["Kagabo Jean", "Mukamana Alice", "Bizimana Eric", "Uwera Sarah", "Habimana Paul",
+                  "Gatete Patrick", "Umutoni Grace", "Nshuti David", "Kamikazi Diane", "Rukundo Yves"]
+    names = fake_names + [""] * 90 
+    
+    df = pd.DataFrame({"Member No": members, "Member Name": names})
+    
+    # Fake contribution options
+    amounts = [0, 50000, 100000, 100000, 150000, 200000, 300000] 
+    
+    for y in st.session_state.years:
+        for m in months:
+            col_name = f"{y} {m}"
+            # Stop generating data after May 2026
+            if y == 2026 and months.index(m) > 4: 
+                df[col_name] = 0.0
+            else:
+                col_data = []
+                for i in range(100):
+                    if i < 10: # Only assign money to our 10 fake members
+                        col_data.append(float(random.choice(amounts)))
+                    else:
+                        col_data.append(0.0)
+                df[col_name] = col_data
+                
     st.session_state.collections_df = df
 
-# Initialize Expenses Database
+# Initialize Expenses Database with Fake Data
 if 'expenses_df' not in st.session_state:
     st.session_state.expenses_df = pd.DataFrame({
-        "No": [1], 
-        "Description": ["Initial Setup"], 
-        "Date": [date.today()], 
-        "Amount": [0.0]
+        "No": [1, 2, 3, 4], 
+        "Description": ["Initial Legal Setup", "Bank Account Fees 2024", "Annual General Meeting", "Agri-Equipment Lease Deposit"], 
+        "Date": [date(2024, 1, 15), date(2024, 12, 30), date(2025, 6, 10), date(2026, 3, 5)], 
+        "Amount": [150000.0, 25000.0, 300000.0, 1200000.0]
     })
 
 # ==========================================
-# SIDEBAR NAVIGATION (With Active State Logic)
+# SIDEBAR NAVIGATION
 # ==========================================
 st.sidebar.title("Navigation")
 
-# Function to determine if a button should be styled as active (primary) or inactive (secondary)
 def get_btn_type(page_name):
     return "primary" if st.session_state.page == page_name else "secondary"
 
