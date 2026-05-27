@@ -5,29 +5,65 @@ import plotly.graph_objects as go
 # --- Page Configuration ---
 st.set_page_config(page_title="Nkeretanyi Cooperative Fund", layout="wide")
 
+# --- Custom CSS for Blue Outline Sidebar Buttons ---
+st.markdown("""
+    <style>
+    /* Target only buttons inside the sidebar */
+    section[data-testid="stSidebar"] .stButton button {
+        border: 2px solid #3b82f6; /* Blue border matching your sketch */
+        background-color: transparent;
+        color: white;
+        border-radius: 4px;
+        height: 45px;
+    }
+    /* Change background to solid blue when hovering */
+    section[data-testid="stSidebar"] .stButton button:hover {
+        background-color: #3b82f6;
+        color: white;
+    }
+    /* Target the text inside the button to ensure it aligns well */
+    section[data-testid="stSidebar"] .stButton button p {
+        font-weight: 600;
+        font-size: 16px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # ==========================================
-# SIDEBAR NAVIGATION
+# SESSION STATE INITIALIZATION
+# ==========================================
+# This acts as the app's "memory" so it knows which page to stay on
+if 'page' not in st.session_state:
+    st.session_state.page = 'Home'
+
+# ==========================================
+# SIDEBAR NAVIGATION (BUTTON LAYOUT)
 # ==========================================
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Select a Module:", [
-    "Home", 
-    "Part 1: Main Scenario", 
-    "Part 2: Tiered Model", 
-    "Part 3: Diversification (Upcoming)", 
-    "Part 4: Digital Integration (Upcoming)"
-])
+
+# Create the buttons. If clicked, update the session_state.page variable
+if st.sidebar.button("Home", use_container_width=True):
+    st.session_state.page = "Home"
+if st.sidebar.button("Part 1: Main Scenario", use_container_width=True):
+    st.session_state.page = "Part 1: Main Scenario"
+if st.sidebar.button("Part 2: Tiered Model", use_container_width=True):
+    st.session_state.page = "Part 2: Tiered Model"
+if st.sidebar.button("Part 3: Diversification", use_container_width=True):
+    st.session_state.page = "Part 3: Diversification (Upcoming)"
+if st.sidebar.button("Part 4: Digital Integration", use_container_width=True):
+    st.session_state.page = "Part 4: Digital Integration (Upcoming)"
 
 st.sidebar.divider()
 
 # ==========================================
 # PAGE: HOME
 # ==========================================
-if page == "Home":
+if st.session_state.page == "Home":
     st.title("Nkeretanyi Cooperative Fund")
     st.markdown("### Welcome to the Cooperative Growth Modeler")
     
-    # Image Placeholder (You can replace this URL with a local file path later like "images/coop_logo.png")
-    st.image("https://via.placeholder.com/1200x400.png?text=Cooperative+Image+Placeholder", use_container_width=True)
+    # Updated Image URL
+    st.image("https://img.magnific.com/premium-photo/african-farmers-inspire-sustainable-cooperative-regenerative-agriculture_191555-9274.jpg?w=2000", use_container_width=True)
     
     st.markdown("""
     Use the navigation menu on the left to explore the financial models:
@@ -38,7 +74,7 @@ if page == "Home":
 # ==========================================
 # PAGE: PART 1 (MAIN SCENARIO)
 # ==========================================
-elif page == "Part 1: Main Scenario":
+elif st.session_state.page == "Part 1: Main Scenario":
     st.title("Nkeretanyi Cooperative Fund")
     st.header("Part 1: Main Scenario Analysis")
     
@@ -125,7 +161,7 @@ elif page == "Part 1: Main Scenario":
 # ==========================================
 # PAGE: PART 2 (TIERED MODEL)
 # ==========================================
-elif page == "Part 2: Tiered Model":
+elif st.session_state.page == "Part 2: Tiered Model":
     st.title("Nkeretanyi Cooperative Fund")
     st.header("Part 2: Tiered Model Analysis")
 
@@ -185,5 +221,5 @@ elif page == "Part 2: Tiered Model":
 # ==========================================
 else:
     st.title("Nkeretanyi Cooperative Fund")
-    st.header(page)
+    st.header(st.session_state.page)
     st.info("This module is currently under development. Check back later as we expand the application!")
